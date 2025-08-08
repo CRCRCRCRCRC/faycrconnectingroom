@@ -1,7 +1,7 @@
 {
-  "name": "faycr-auth-backend",
+  "name": "faycrchat",
   "version": "1.0.0",
-  "description": "FayCR連線室認證後端系統",
+  "description": "FayCRChat 認證後端系統",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

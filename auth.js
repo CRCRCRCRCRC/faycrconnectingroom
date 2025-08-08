@@ -680,4 +680,4 @@ document.querySelectorAll('form').forEach(form => {
     });
 });
 
-console.log('FayCR連線室認證系統已初始化');
+console.log('FayCRChat 認證系統已初始化');

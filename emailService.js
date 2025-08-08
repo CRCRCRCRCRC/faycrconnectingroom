@@ -44,7 +44,7 @@ class EmailService {
                 address: this.config.from.email
             },
             to: to,
-            subject: '🔐 FayCR連線室 - 電子郵件驗證',
+            subject: '🔐 FayCRChat - 電子郵件驗證',
             html: this.generateVerificationEmailHTML(username, verificationCode),
             text: this.generateVerificationEmailText(username, verificationCode)
         };
@@ -71,7 +71,7 @@ class EmailService {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>FayCR連線室 - 電子郵件驗證</title>
+            <title>FayCRChat - 電子郵件驗證</title>
             <style>
                 body {
                     font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
@@ -153,13 +153,13 @@ class EmailService {
         <body>
             <div class="container">
                 <div class="header">
-                    <div class="logo">🌐 FayCR連線室</div>
+                    <div class="logo">🌐 FayCRChat</div>
                     <h1 class="title">電子郵件驗證</h1>
                 </div>
                 
                 <div class="content">
                     <p>親愛的 <strong>${username}</strong>，</p>
-                    <p>歡迎加入 FayCR連線室！請使用以下驗證碼完成您的帳號註冊：</p>
+                    <p>歡迎加入 FayCRChat！請使用以下驗證碼完成您的帳號註冊：</p>
                     
                     <div class="verification-code">${code}</div>
                     
@@ -176,7 +176,7 @@ class EmailService {
                 <div class="footer">
                     <p>這是一封自動發送的郵件，請勿直接回覆。</p>
                     <p>如有問題，請聯繫我們的客服團隊。</p>
-                    <p>&copy; 2024 FayCR連線室. 保留所有權利.</p>
+                    <p>&copy; 2024 FayCRChat. 保留所有權利.</p>
                 </div>
             </div>
         </body>
@@ -187,11 +187,11 @@ class EmailService {
     // 生成驗證郵件純文字內容
     generateVerificationEmailText(username, code) {
         return `
-FayCR連線室 - 電子郵件驗證
+FayCRChat - 電子郵件驗證
 
 親愛的 ${username}，
 
-歡迎加入 FayCR連線室！請使用以下驗證碼完成您的帳號註冊：
+歡迎加入 FayCRChat！請使用以下驗證碼完成您的帳號註冊：
 
 驗證碼：${code}
 
@@ -205,7 +205,7 @@ FayCR連線室 - 電子郵件驗證
 這是一封自動發送的郵件，請勿直接回覆。
 如有問題，請聯繫我們的客服團隊。
 
-© 2024 FayCR連線室. 保留所有權利.
+© 2024 FayCRChat. 保留所有權利.
         `;
     }
 
@@ -221,7 +221,7 @@ FayCR連線室 - 電子郵件驗證
                 address: this.config.from.email
             },
             to: to,
-            subject: '🎉 歡迎加入 FayCR連線室！',
+            subject: '🎉 歡迎加入 FayCRChat！',
             html: this.generateWelcomeEmailHTML(username),
             text: `歡迎加入 FayCR連線室，${username}！您的帳號已成功註冊並驗證。`
         };
@@ -248,7 +248,7 @@ FayCR連線室 - 電子郵件驗證
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>歡迎加入 FayCR連線室</title>
+            <title>歡迎加入 FayCRChat</title>
             <style>
                 body {
                     font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
@@ -300,17 +300,17 @@ FayCR連線室 - 電子郵件驗證
         </head>
         <body>
             <div class="container">
-                <div class="logo">🌐 FayCR連線室</div>
+                <div class="logo">🌐 FayCRChat</div>
                 <div class="celebration">🎉</div>
                 <h1 class="title">歡迎加入我們！</h1>
                 <p class="message">
                     親愛的 <strong>${username}</strong>，<br>
-                    恭喜您成功註冊 FayCR連線室！<br>
+                    恭喜您成功註冊 FayCRChat！<br>
                     您的帳號已經驗證完成，現在可以開始享受我們的服務了。
                 </p>
                 <div class="footer">
-                    <p>感謝您選擇 FayCR連線室</p>
-                    <p>&copy; 2024 FayCR連線室. 保留所有權利.</p>
+                    <p>感謝您選擇 FayCRChat</p>
+                    <p>&copy; 2024 FayCRChat. 保留所有權利.</p>
                 </div>
             </div>
         </body>

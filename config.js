@@ -13,7 +13,7 @@ module.exports = {
         },
         from: {
             email: process.env.EMAIL_FROM || process.env.EMAIL_USER || '',
-            name: process.env.EMAIL_FROM_NAME || 'FayCR連線室'
+            name: process.env.EMAIL_FROM_NAME || 'FayCRChat'
         }
     },
     

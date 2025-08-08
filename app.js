@@ -94,7 +94,7 @@ const authenticateToken = (req, res, next) => {
 
 // API 路由
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'FayCR連線室後端服務運行中', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', message: 'FayCRChat 後端服務運行中', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/test-email', async (req, res) => {
