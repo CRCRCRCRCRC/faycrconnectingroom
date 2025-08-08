@@ -201,8 +201,7 @@ app.get('/api/user', authenticateToken, async (req, res) => {
     }
 });
 
-// 靜態文件服務（頭像）
-app.use('/uploads', express.static(uploadsDir));
+// 取消 /uploads 靜態服務（Serverless 無檔案系統）
 
 // 錯誤處理中間件
 app.use((error, req, res, next) => {
