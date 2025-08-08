@@ -161,6 +161,26 @@ function previewAvatar(input) {
     }
 }
 
+// 產生內嵌SVG頭像，避免外部請求
+function generateAvatarDataUrl(initial) {
+    const safe = (initial || 'U').toUpperCase().slice(0, 1);
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>
+  <defs>
+    <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#667eea'/>
+      <stop offset='100%' stop-color='#764ba2'/>
+    </linearGradient>
+  </defs>
+  <rect width='100' height='100' fill='url(#g)' rx='16'/>
+  <text x='50' y='58' font-family='Arial, sans-serif' font-size='44' fill='white' text-anchor='middle' dominant-baseline='middle'>${safe}</text>
+  <!-- padding tweak -->
+  <rect width='100' height='100' fill='transparent'/>
+  <text x='50' y='52' font-family='Arial, sans-serif' font-size='44' fill='white' text-anchor='middle'>${safe}</text>
+</svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 // 處理註冊
 async function handleRegister(event) {
     event.preventDefault();
@@ -179,7 +199,7 @@ async function handleRegister(event) {
     
     try {
         // 處理頭像
-        let avatarDataUrl = 'https://via.placeholder.com/100x100?text=' + encodeURIComponent(username.charAt(0));
+        let avatarDataUrl = generateAvatarDataUrl(username.charAt(0));
         if (avatarFile) {
             avatarDataUrl = await fileToBase64(avatarFile);
         }
