@@ -10,7 +10,12 @@
     <meta name="google-client-id" content="">
     <script>
       (function(){
-        try{ fetch('/api/env').then(r=>r.json()).then(d=>{ window.GOOGLE_CLIENT_ID = d.googleClientId || ''; }); }catch(e){}
+        try{
+          fetch('/api/env').then(r=>r.json()).then(d=>{
+            window.GOOGLE_CLIENT_ID = d.googleClientId || '';
+            window.DISCORD_CLIENT_ID = d.discordClientId || '';
+          });
+        }catch(e){}
       })();
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
