@@ -100,6 +100,19 @@ body {
     transform: translateY(-2px);
 }
 
+/* Google 按鈕樣式（深色主題） */
+.btn-google {
+    background: #1a73e8; /* Google 藍 */
+    color: #fff;
+    border: none;
+    box-shadow: var(--shadow-medium);
+}
+.btn-google:hover {
+    background: #1669c1;
+    transform: translateY(-2px);
+}
+.btn-google i { color: #fff; }
+
 .btn-full {
     width: 100%;
     justify-content: center;
