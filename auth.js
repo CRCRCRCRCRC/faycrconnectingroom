@@ -15,6 +15,27 @@ const API_BASE_URL = '/api';
 document.addEventListener('DOMContentLoaded', function() {
     initializeAuth();
     setupFormHandlers();
+    // 若 OAuth 回跳夾帶 token，寫入後清除 URL
+    const url = new URL(window.location.href);
+    const t = url.searchParams.get('token');
+    if (t) {
+        try {
+            localStorage.setItem('authToken', t);
+            url.searchParams.delete('token');
+            window.history.replaceState({}, document.title, url.pathname + url.search);
+            // 拉取個人資料並更新 UI
+            (async ()=>{
+                authToken = t;
+                const resp = await fetch(`${API_BASE_URL}/user`, { headers: { Authorization: `Bearer ${authToken}` } });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    currentUser = data.user;
+                    updateUIForLoggedInUser();
+                    showAlert(`歡迎回來，${currentUser.username}！`, 'success');
+                }
+            })();
+        } catch (_) {}
+    }
 });
 
 // 初始化認證狀態

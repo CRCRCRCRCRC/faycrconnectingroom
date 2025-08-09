@@ -244,14 +244,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
         }
 
         const token = jwt.sign({ userId: userRow.id, email: userRow.email, username: userRow.username }, config.server.jwtSecret, { expiresIn: '7d' });
-
-        // 以簡單頁面回傳腳本，將 token 注入並導回首頁
-        const html = `<!doctype html><html><body><script>
-            localStorage.setItem('authToken', ${JSON.stringify(token)});
-            window.location.href = '/';
-        </script>登入成功，正在返回...</body></html>`;
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        // 改用 302 導回首頁，將 token 放在查詢參數，避免 inline script 觸發 CSP
+        return res.redirect(`/?token=${encodeURIComponent(token)}`);
     } catch (e) {
         console.error('Google OAuth callback error:', e);
         return res.status(500).send('Google OAuth Failed');
