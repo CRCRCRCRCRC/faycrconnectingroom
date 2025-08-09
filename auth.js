@@ -66,6 +66,9 @@ function setupFormHandlers() {
     const googleLoginBtn = document.getElementById('googleLoginBtn');
     if (googleLoginBtn) googleLoginBtn.addEventListener('click', startGoogleLogin);
 
+    // 初始化 Google 按鈕（置於登入視窗內）
+    initGoogleButton();
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
@@ -120,34 +123,12 @@ async function startGoogleLogin() {
             return;
         }
 
-        const idToken = await new Promise((resolve, reject) => {
-            try {
-                window.google.accounts.id.initialize({ client_id: clientId, callback: (resp) => resolve(resp.credential) });
-                window.google.accounts.id.prompt((notification) => {
-                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                        // 後備：使用 one-tap 失敗時，改用 OAuth 2 popup
-                        reject(new Error('Google One Tap 無法顯示，請稍後再試'));
-                    }
-                });
-            } catch (e) {
-                reject(e);
-            }
-        });
-
-        const response = await fetch(`${API_BASE_URL}/login/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Google 登入失敗');
-
-        authToken = data.token;
-        currentUser = data.user;
-        localStorage.setItem('authToken', authToken);
-        closeAllModals();
-        updateUIForLoggedInUser();
-        showAlert(`歡迎回來，${currentUser.username}！`, 'success');
+        // 若已渲染按鈕，直接開啟 one-tap 提示
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+            window.google.accounts.id.prompt();
+        } else {
+            showAlert('Google 登入初始化失敗，請稍後再試');
+        }
     } catch (err) {
         console.error('Google 登入錯誤:', err);
         showAlert(err.message || 'Google 登入失敗');
@@ -166,9 +147,56 @@ function loadScript(src) {
 }
 
 function getGoogleClientId() {
-    // 你可將 GOOGLE_CLIENT_ID 寫在 Vercel 環境變數，前端可透過注入方式傳遞（簡化：直接硬編或用 data-attribute 注入）
-    // 這裡先嘗試從全域變數取值
-    return window.GOOGLE_CLIENT_ID || '${process.env.GOOGLE_CLIENT_ID || ''}';
+    // 從全域或 <meta name="google-client-id" content="..."> 讀取
+    const meta = document.querySelector('meta[name="google-client-id"]');
+    return window.GOOGLE_CLIENT_ID || (meta && meta.content) || '';
+}
+
+function initGoogleButton() {
+    const container = document.getElementById('googleSignInContainer');
+    if (!container) return;
+
+    const clientId = getGoogleClientId();
+    if (!clientId) return; // 沒有 client id 就先不初始化
+
+    const ensureLoaded = async () => {
+        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+            await loadScript('https://accounts.google.com/gsi/client');
+        }
+        window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleCredential
+        });
+        window.google.accounts.id.renderButton(container, {
+            theme: 'outline',
+            size: 'large',
+            width: 320
+        });
+    };
+    ensureLoaded().catch(() => {});
+}
+
+async function handleGoogleCredential(resp) {
+    try {
+        const idToken = resp.credential;
+        const response = await fetch(`${API_BASE_URL}/login/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Google 登入失敗');
+
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem('authToken', authToken);
+        closeAllModals();
+        updateUIForLoggedInUser();
+        showAlert(`歡迎回來，${currentUser.username}！`, 'success');
+    } catch (e) {
+        console.error('Google 登入錯誤:', e);
+        showAlert(e.message || 'Google 登入失敗');
+    }
 }
 
 // 顯示登入彈窗
