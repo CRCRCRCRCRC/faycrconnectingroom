@@ -344,6 +344,20 @@ app.get('/api/user', authenticateToken, async (req, res) => {
     }
 });
 
+// 更新個人資料（名稱、頭像）
+app.post('/api/user/profile', authenticateToken, async (req, res) => {
+    try {
+        const { username, avatar } = req.body;
+        if (!username) return res.status(400).json({ error: 'INVALID_USERNAME', message: '暱稱不可為空' });
+        const sql = require('@neondatabase/serverless').neon(process.env.DATABASE_URL);
+        await sql`update users set username = ${username}, avatar_data = ${avatar || null} where id = ${req.user.userId}`;
+        res.json({ success: true });
+    } catch (e) {
+        console.error('更新個人資料錯誤:', e);
+        res.status(500).json({ error: 'PROFILE_UPDATE_FAILED', message: '更新失敗' });
+    }
+});
+
 // 取消 /uploads 靜態服務（Serverless 無檔案系統）
 
 // 錯誤處理中間件

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
     <meta name="google-client-id" content="">
     <script>
       (function(){
@@ -19,6 +20,7 @@
       })();
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js" defer></script>
 </head>
 <body>
     <header class="header">
@@ -136,6 +138,34 @@
                     <button class="btn btn-link" id="resendBtn">重新發送驗證碼</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 編輯個人資料彈窗 -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>編輯個人資料</h2>
+                <span class="close" data-modal-id="profileModal">&times;</span>
+            </div>
+            <form class="auth-form" id="profileForm">
+                <div class="form-group">
+                    <label for="profileUsername">暱稱</label>
+                    <input type="text" id="profileUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="profileAvatarInput">頭像</label>
+                    <div class="avatar-upload">
+                        <img class="avatar-preview" id="profileAvatarPreview" src="" alt="頭像預覽">
+                        <input type="file" id="profileAvatarInput" accept="image/*">
+                        <label for="profileAvatarInput" class="avatar-upload-btn">
+                            <i class="fas fa-camera"></i>
+                            選擇頭像
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" id="profileSaveBtn" class="btn btn-primary btn-full">儲存變更</button>
+            </form>
         </div>
     </div>
 

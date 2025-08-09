@@ -569,6 +569,9 @@ function updateUIForLoggedInUser() {
     userAvatar.src = currentUser.avatar;
     userName.textContent = currentUser.username;
     userInfo.style.display = 'flex';
+
+    // 點擊頭像開啟編輯視窗
+    userAvatar.onclick = openProfileModal;
     
     // 更新歡迎訊息
     const welcomeSection = document.getElementById('welcomeSection');
@@ -577,6 +580,128 @@ function updateUIForLoggedInUser() {
         <p>您已成功登入 FayCR連線室</p>
     `;
 }
+
+function openProfileModal() {
+    const preview = document.getElementById('profileAvatarPreview');
+    const nameInput = document.getElementById('profileUsername');
+    preview.src = currentUser.avatar || '';
+    nameInput.value = currentUser.username || '';
+    document.getElementById('profileModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+// 頭像預覽（編輯）
+document.addEventListener('change', function(e){
+    if (e.target && e.target.id === 'profileAvatarInput' && e.target.files && e.target.files[0]) {
+        // 使用 Cropper 進行裁切
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev)=>{
+            openCropper(ev.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// 儲存個資（前端先更新 UI，同步呼叫後端）
+document.addEventListener('submit', async function(e){
+    if (e.target && e.target.id === 'profileForm') {
+        e.preventDefault();
+        const newName = document.getElementById('profileUsername').value.trim();
+        const newAvatar = document.getElementById('profileAvatarPreview').src || '';
+        if (!newName) { showAlert('暱稱不可為空'); return; }
+        try {
+            const resp = await fetch(`${API_BASE_URL}/user/profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                body: JSON.stringify({ username: newName, avatar: newAvatar })
+            });
+            if (!resp.ok) {
+                const d = await resp.json().catch(()=>({message:'更新失敗'}));
+                throw new Error(d.message || '更新失敗');
+            }
+            currentUser.username = newName;
+            currentUser.avatar = newAvatar;
+            document.getElementById('userName').textContent = newName;
+            document.getElementById('userAvatar').src = newAvatar;
+            closeModal('profileModal');
+            showAlert('已更新個人資料','success');
+        } catch (err) {
+            console.error('更新個人資料錯誤:', err);
+            showAlert(err.message || '更新失敗');
+        }
+    }
+});
+
+// 開啟裁切器、壓縮輸出
+let activeCropper = null;
+function openCropper(dataUrl) {
+    const img = document.getElementById('profileAvatarPreview');
+    img.src = dataUrl;
+    // 銷毀舊實例
+    if (activeCropper) { activeCropper.destroy(); activeCropper = null; }
+    // 等圖片載入後建立 cropper
+    img.onload = () => {
+        activeCropper = new window.Cropper(img, {
+            viewMode: 1,
+            aspectRatio: 1,
+            background: false,
+            autoCropArea: 1,
+            movable: true,
+            zoomable: true,
+            scalable: false,
+            dragMode: 'move'
+        });
+    };
+}
+
+// 在儲存前若有 cropper，取裁切結果並壓縮
+async function getCroppedDataUrl() {
+    if (!activeCropper) {
+        return document.getElementById('profileAvatarPreview').src || '';
+    }
+    const canvas = activeCropper.getCroppedCanvas({ width: 256, height: 256 });
+    // 輸出為 PNG（無損，不壓縮）
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    return await new Promise(resolve => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.readAsDataURL(blob);
+    });
+}
+
+// 攔截 profile 儲存，改抓裁切後圖片
+(function hookProfileSave(){
+    const form = document.getElementById('profileForm');
+    if (!form) return;
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newName = document.getElementById('profileUsername').value.trim();
+        if (!newName) { showAlert('暱稱不可為空'); return; }
+        const newAvatar = await getCroppedDataUrl();
+        try {
+            const resp = await fetch(`${API_BASE_URL}/user/profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                body: JSON.stringify({ username: newName, avatar: newAvatar })
+            });
+            if (!resp.ok) {
+                const d = await resp.json().catch(()=>({message:'更新失敗'}));
+                throw new Error(d.message || '更新失敗');
+            }
+            currentUser.username = newName;
+            currentUser.avatar = newAvatar;
+            document.getElementById('userName').textContent = newName;
+            document.getElementById('userAvatar').src = newAvatar;
+            closeModal('profileModal');
+            if (activeCropper) { activeCropper.destroy(); activeCropper = null; }
+            showAlert('已更新個人資料','success');
+        } catch (err) {
+            console.error('更新個人資料錯誤:', err);
+            showAlert(err.message || '更新失敗');
+        }
+    }, { once: true });
+})();
 
 // 登出
 function logout() {
