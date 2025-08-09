@@ -8,6 +8,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <meta name="google-client-id" content="">
+    <script>
+      (function(){
+        try{ fetch('/api/env').then(r=>r.json()).then(d=>{ window.GOOGLE_CLIENT_ID = d.googleClientId || ''; }); }catch(e){}
+      })();
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -17,8 +22,7 @@
             <!-- 未登入時顯示 -->
             <div class="auth-buttons" id="authButtons">
                 <button class="btn btn-secondary" id="loginBtn">登入</button>
-<button class="btn btn-primary" id="registerBtn">註冊</button>
-                <button class="btn btn-secondary" id="googleLoginBtn"><i class="fab fa-google"></i> 使用 Google 登入</button>
+                <button class="btn btn-primary" id="registerBtn">註冊</button>
             </div>
             <!-- 登入後顯示 -->
             <div class="user-info" id="userInfo" style="display: none;">
@@ -54,7 +58,9 @@
                     <input type="password" id="loginPassword" required>
                 </div>
                 <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-full">登入</button>
-                <div id="googleSignInContainer" style="margin-top: 12px; display:flex; justify-content:center;"></div>
+                <div style="margin: 12px 0; text-align:center;">
+                    <a id="googleOAuthLink" class="btn btn-secondary" href="#"><i class="fab fa-google"></i> 以 Google 登入</a>
+                </div>
                 <div class="auth-switch">
                     還沒有帳號？ <a href="#" id="switchToRegisterLink">立即註冊</a>
                 </div>

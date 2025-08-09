@@ -27,8 +27,12 @@ const app = express();
 const database = new Database(config.database.filename);
 const emailService = new EmailService(config.email);
 
-// Google OAuth 客戶端
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Google OAuth 客戶端（授權碼流程）
+const googleOAuthClient = new OAuth2Client(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${process.env.PUBLIC_BASE_URL || ''}/api/auth/google/callback`
+);
 
 // 安全中間件
 app.use(helmet({
@@ -99,6 +103,13 @@ const authenticateToken = (req, res, next) => {
 // API 路由
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'FayCRChat 後端服務運行中', timestamp: new Date().toISOString() });
+});
+
+// 提供前端需要的公開環境變數（不包含敏感值）
+app.get('/api/env', (req, res) => {
+    res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+    });
 });
 
 app.get('/api/test-email', async (req, res) => {
@@ -196,59 +207,52 @@ app.post('/api/login', authLimiter, async (req, res) => {
     }
 });
 
-// Google 登入（ID Token 驗證）
-app.post('/api/login/google', authLimiter, async (req, res) => {
-    try {
-        const { idToken } = req.body;
-        if (!idToken) return res.status(400).json({ error: 'MISSING_ID_TOKEN', message: '缺少 Google ID Token' });
+// Step 1: 前端導向 Google 授權頁（前端已組好URL）
 
-        const ticket = await googleClient.verifyIdToken({
-            idToken,
-            audience: process.env.GOOGLE_CLIENT_ID
-        });
+// Step 2: 授權碼 callback（交換 token 並登入/註冊）
+app.get('/api/auth/google/callback', async (req, res) => {
+    try {
+        const code = req.query.code;
+        if (!code) return res.status(400).send('Missing code');
+
+        const r = await googleOAuthClient.getToken({ code });
+        const idToken = r.tokens.id_token;
+        if (!idToken) return res.status(500).send('No id_token');
+
+        const ticket = await googleOAuthClient.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         const email = payload.email;
         const username = payload.name || email.split('@')[0];
         const avatar = payload.picture || null;
 
-        // 嘗試查詢使用者
-        let user;
-        try {
-            user = await database.authenticateUser(email, '__google__');
-        } catch (err) {
-            if (err.message === 'USER_NOT_FOUND') {
-                // 建立新使用者（以隨機密碼佔位，標記已驗證）
-                const create = await database.createUser({ username, email, password: Math.random().toString(36), avatarData: avatar });
-                await database.verifyUser(email, create.verificationCode); // 直接標記驗證
-                user = await database.authenticateUser(email, '__google__');
-            } else if (err.message === 'EMAIL_NOT_VERIFIED') {
-                await database.verifyUser(email, (await database.resendVerificationCode(email)).verificationCode);
-                user = await database.authenticateUser(email, '__google__');
-            } else if (err.message === 'INVALID_PASSWORD') {
-                // 允許 Google 使用者用 token 登入，不檢查本地密碼
-                const rows = await require('@neondatabase/serverless').neon(process.env.DATABASE_URL)`select id, username, email, avatar_data from users where email = ${email}`;
-                if (!rows.length) throw new Error('USER_NOT_FOUND');
-                user = { id: rows[0].id, username: rows[0].username, email: rows[0].email, avatar: rows[0].avatar_data };
-            } else {
-                throw err;
-            }
+        // 嘗試查詢/建立使用者
+        const sql = require('@neondatabase/serverless').neon(process.env.DATABASE_URL);
+        let rows = await sql`select id, username, email, avatar_data, is_verified from users where email = ${email}`;
+        let userRow = rows[0];
+        if (!userRow) {
+            const created = await database.createUser({ username, email, password: Math.random().toString(36), avatarData: avatar });
+            await database.verifyUser(email, created.verificationCode);
+            rows = await sql`select id, username, email, avatar_data, is_verified from users where email = ${email}`;
+            userRow = rows[0];
+        }
+        // 覆蓋頭像
+        if (avatar && userRow && userRow.avatar_data !== avatar) {
+            await sql`update users set avatar_data = ${avatar} where email = ${email}`;
+            userRow.avatar_data = avatar;
         }
 
-        // 若需要，用 Google 頭像覆蓋現有頭像（使用者稍後可自己更改）
-        if (avatar) {
-            try {
-                const sql = require('@neondatabase/serverless').neon(process.env.DATABASE_URL);
-                await sql`update users set avatar_data = ${avatar} where email = ${email}`;
-                user.avatar = avatar;
-            } catch (_) {}
-        }
+        const token = jwt.sign({ userId: userRow.id, email: userRow.email, username: userRow.username }, config.server.jwtSecret, { expiresIn: '7d' });
 
-        const token = jwt.sign({ userId: user.id, email: user.email, username: user.username }, config.server.jwtSecret, { expiresIn: '7d' });
-        res.json({ success: true, message: 'Google 登入成功', token, user });
-
-    } catch (error) {
-        console.error('Google 登入錯誤:', error);
-        res.status(500).json({ error: 'GOOGLE_LOGIN_FAILED', message: 'Google 登入失敗' });
+        // 以簡單頁面回傳腳本，將 token 注入並導回首頁
+        const html = `<!doctype html><html><body><script>
+            localStorage.setItem('authToken', ${JSON.stringify(token)});
+            window.location.href = '/';
+        </script>登入成功，正在返回...</body></html>`;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+    } catch (e) {
+        console.error('Google OAuth callback error:', e);
+        return res.status(500).send('Google OAuth Failed');
     }
 });
 

@@ -63,11 +63,8 @@ function setupFormHandlers() {
     const registerBtn = document.getElementById('registerBtn');
     if (registerBtn) registerBtn.addEventListener('click', showRegister);
 
-    const googleLoginBtn = document.getElementById('googleLoginBtn');
-    if (googleLoginBtn) googleLoginBtn.addEventListener('click', startGoogleLogin);
-
-    // 初始化 Google 按鈕（置於登入視窗內）
-    initGoogleButton();
+    const googleOAuthLink = document.getElementById('googleOAuthLink');
+    if (googleOAuthLink) googleOAuthLink.addEventListener('click', (e)=>{ e.preventDefault(); startGoogleOAuth(); });
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
@@ -109,30 +106,15 @@ function setupFormHandlers() {
     });
 }
 // 開始 Google 登入流程（彈出 Google OAuth 頁面取得 ID Token）
-async function startGoogleLogin() {
-    try {
-        // 使用 Google Identity Services (popup) — 前端取得 credential
-        // 動態載入 GIS script
-        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-            await loadScript('https://accounts.google.com/gsi/client');
-        }
-
-        const clientId = getGoogleClientId();
-        if (!clientId) {
-            showAlert('缺少 GOOGLE_CLIENT_ID，請到 Vercel 設定環境變數');
-            return;
-        }
-
-        // 若已渲染按鈕，直接開啟 one-tap 提示
-        if (window.google && window.google.accounts && window.google.accounts.id) {
-            window.google.accounts.id.prompt();
-        } else {
-            showAlert('Google 登入初始化失敗，請稍後再試');
-        }
-    } catch (err) {
-        console.error('Google 登入錯誤:', err);
-        showAlert(err.message || 'Google 登入失敗');
-    }
+function startGoogleOAuth() {
+    const envMeta = document.querySelector('meta[name="google-client-id"]');
+    const clientId = window.GOOGLE_CLIENT_ID || (envMeta && envMeta.content) || '';
+    const redirectUri = `${location.origin}/api/auth/google/callback`;
+    if (!clientId) { showAlert('缺少 GOOGLE_CLIENT_ID'); return; }
+    const scope = encodeURIComponent('openid email profile');
+    const state = encodeURIComponent(Math.random().toString(36).slice(2));
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&include_granted_scopes=true&state=${state}&prompt=select_account`;
+    window.location.href = url;
 }
 
 function loadScript(src) {
@@ -152,52 +134,7 @@ function getGoogleClientId() {
     return window.GOOGLE_CLIENT_ID || (meta && meta.content) || '';
 }
 
-function initGoogleButton() {
-    const container = document.getElementById('googleSignInContainer');
-    if (!container) return;
-
-    const clientId = getGoogleClientId();
-    if (!clientId) return; // 沒有 client id 就先不初始化
-
-    const ensureLoaded = async () => {
-        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-            await loadScript('https://accounts.google.com/gsi/client');
-        }
-        window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleGoogleCredential
-        });
-        window.google.accounts.id.renderButton(container, {
-            theme: 'outline',
-            size: 'large',
-            width: 320
-        });
-    };
-    ensureLoaded().catch(() => {});
-}
-
-async function handleGoogleCredential(resp) {
-    try {
-        const idToken = resp.credential;
-        const response = await fetch(`${API_BASE_URL}/login/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Google 登入失敗');
-
-        authToken = data.token;
-        currentUser = data.user;
-        localStorage.setItem('authToken', authToken);
-        closeAllModals();
-        updateUIForLoggedInUser();
-        showAlert(`歡迎回來，${currentUser.username}！`, 'success');
-    } catch (e) {
-        console.error('Google 登入錯誤:', e);
-        showAlert(e.message || 'Google 登入失敗');
-    }
-}
+// 其餘 GIS One-Tap 相關已移除，改用 OAuth 授權碼流程
 
 // 顯示登入彈窗
 function showLogin() {
