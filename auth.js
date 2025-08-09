@@ -63,6 +63,9 @@ function setupFormHandlers() {
     const registerBtn = document.getElementById('registerBtn');
     if (registerBtn) registerBtn.addEventListener('click', showRegister);
 
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    if (googleLoginBtn) googleLoginBtn.addEventListener('click', startGoogleLogin);
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
@@ -101,6 +104,71 @@ function setupFormHandlers() {
             }
         });
     });
+}
+// 開始 Google 登入流程（彈出 Google OAuth 頁面取得 ID Token）
+async function startGoogleLogin() {
+    try {
+        // 使用 Google Identity Services (popup) — 前端取得 credential
+        // 動態載入 GIS script
+        if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+            await loadScript('https://accounts.google.com/gsi/client');
+        }
+
+        const clientId = getGoogleClientId();
+        if (!clientId) {
+            showAlert('缺少 GOOGLE_CLIENT_ID，請到 Vercel 設定環境變數');
+            return;
+        }
+
+        const idToken = await new Promise((resolve, reject) => {
+            try {
+                window.google.accounts.id.initialize({ client_id: clientId, callback: (resp) => resolve(resp.credential) });
+                window.google.accounts.id.prompt((notification) => {
+                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                        // 後備：使用 one-tap 失敗時，改用 OAuth 2 popup
+                        reject(new Error('Google One Tap 無法顯示，請稍後再試'));
+                    }
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+
+        const response = await fetch(`${API_BASE_URL}/login/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Google 登入失敗');
+
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem('authToken', authToken);
+        closeAllModals();
+        updateUIForLoggedInUser();
+        showAlert(`歡迎回來，${currentUser.username}！`, 'success');
+    } catch (err) {
+        console.error('Google 登入錯誤:', err);
+        showAlert(err.message || 'Google 登入失敗');
+    }
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+function getGoogleClientId() {
+    // 你可將 GOOGLE_CLIENT_ID 寫在 Vercel 環境變數，前端可透過注入方式傳遞（簡化：直接硬編或用 data-attribute 注入）
+    // 這裡先嘗試從全域變數取值
+    return window.GOOGLE_CLIENT_ID || '${process.env.GOOGLE_CLIENT_ID || ''}';
 }
 
 // 顯示登入彈窗
