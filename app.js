@@ -6,6 +6,7 @@ const multer = require('multer');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { OAuth2Client } = require('google-auth-library');
+const fetch = global.fetch || require('node-fetch');
 
 // 引入自定義模塊
 const Database = require('./database');
@@ -110,7 +111,8 @@ app.get('/api/health', (req, res) => {
 // 提供前端需要的公開環境變數（不包含敏感值）
 app.get('/api/env', (req, res) => {
     res.json({
-        googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        discordClientId: process.env.DISCORD_CLIENT_ID || ''
     });
 });
 
@@ -249,6 +251,87 @@ app.get('/api/auth/google/callback', async (req, res) => {
     } catch (e) {
         console.error('Google OAuth callback error:', e);
         return res.status(500).send('Google OAuth Failed');
+    }
+});
+
+// Discord OAuth callback：交換 token、拿使用者資料，並嘗試加入指定伺服器
+app.get('/api/auth/discord/callback', async (req, res) => {
+    try {
+        const code = req.query.code;
+        if (!code) return res.status(400).send('Missing code');
+
+        const redirectUri = `${process.env.PUBLIC_BASE_URL || ''}/api/auth/discord/callback`;
+        // 交換 token
+        const tokenResp = await fetch('https://discord.com/api/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: process.env.DISCORD_CLIENT_ID,
+                client_secret: process.env.DISCORD_CLIENT_SECRET,
+                grant_type: 'authorization_code',
+                code,
+                redirect_uri: redirectUri
+            })
+        });
+        if (!tokenResp.ok) {
+            const txt = await tokenResp.text();
+            return res.status(500).send('Discord token exchange failed: ' + txt);
+        }
+        const tokenData = await tokenResp.json();
+        const accessToken = tokenData.access_token;
+
+        // 取得使用者資料
+        const userResp = await fetch('https://discord.com/api/users/@me', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!userResp.ok) {
+            const txt = await userResp.text();
+            return res.status(500).send('Discord user fetch failed: ' + txt);
+        }
+        const u = await userResp.json();
+        const email = u.email || `${u.id}@discord.local`; // 若未授權 email，使用臨時郵件
+        const username = u.global_name || u.username || 'DiscordUser';
+        const avatar = u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : null;
+
+        // 查詢/建立本地使用者
+        const sql = require('@neondatabase/serverless').neon(process.env.DATABASE_URL);
+        let rows = await sql`select id, username, email, avatar_data, is_verified from users where email = ${email}`;
+        let userRow = rows[0];
+        if (!userRow) {
+            const created = await database.createUser({ username, email, password: Math.random().toString(36), avatarData: avatar });
+            await database.verifyUser(email, created.verificationCode);
+            rows = await sql`select id, username, email, avatar_data, is_verified from users where email = ${email}`;
+            userRow = rows[0];
+        }
+        if (avatar && userRow && userRow.avatar_data !== avatar) {
+            await sql`update users set avatar_data = ${avatar} where email = ${email}`;
+            userRow.avatar_data = avatar;
+        }
+
+        // 嘗試讓使用者加入指定伺服器（需 Bot Token 並且 bot 在該伺服器，且有 guilds.join scope）
+        // 注意：Discord 已不再允許純 OAuth user token 直接加 guild，需透過 Bot 的 OAuth2 與 Add Guild Member API
+        // 這裡提供示範：若提供 DISCORD_GUILD_ID 與 DISCORD_BOT_TOKEN，則嘗試加入
+        if (process.env.DISCORD_GUILD_ID && process.env.DISCORD_BOT_TOKEN) {
+            try {
+                const joinResp = await fetch(`https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${u.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken
+                    })
+                });
+                // 201/204 表成功；若失敗可忽略不阻斷登入
+            } catch (_) {}
+        }
+
+        const token = jwt.sign({ userId: userRow.id, email: userRow.email, username: userRow.username }, config.server.jwtSecret, { expiresIn: '7d' });
+        return res.redirect(`/?token=${encodeURIComponent(token)}`);
+    } catch (e) {
+        console.error('Discord OAuth callback error:', e);
+        return res.status(500).send('Discord OAuth Failed');
     }
 });
 

@@ -86,6 +86,8 @@ function setupFormHandlers() {
 
     const googleOAuthLink = document.getElementById('googleOAuthLink');
     if (googleOAuthLink) googleOAuthLink.addEventListener('click', (e)=>{ e.preventDefault(); startGoogleOAuth(); });
+    const discordOAuthLink = document.getElementById('discordOAuthLink');
+    if (discordOAuthLink) discordOAuthLink.addEventListener('click', (e)=>{ e.preventDefault(); startDiscordOAuth(); });
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
@@ -135,6 +137,16 @@ function startGoogleOAuth() {
     const scope = encodeURIComponent('openid email profile');
     const state = encodeURIComponent(Math.random().toString(36).slice(2));
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&include_granted_scopes=true&state=${state}&prompt=select_account`;
+    window.location.href = url;
+}
+
+function startDiscordOAuth() {
+    const clientId = (window.DISCORD_CLIENT_ID || '');
+    const redirectUri = `${location.origin}/api/auth/discord/callback`;
+    if (!clientId) { showAlert('缺少 DISCORD_CLIENT_ID'); return; }
+    const scope = encodeURIComponent('identify email guilds.join');
+    const state = encodeURIComponent(Math.random().toString(36).slice(2));
+    const url = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&prompt=consent`;
     window.location.href = url;
 }
 

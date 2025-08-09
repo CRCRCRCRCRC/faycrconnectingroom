@@ -113,6 +113,19 @@ body {
 }
 .btn-google i { color: #fff; }
 
+/* Discord 按鈕 */
+.btn-discord {
+    background: #5865F2;
+    color: #fff;
+    border: none;
+    box-shadow: var(--shadow-medium);
+}
+.btn-discord:hover {
+    background: #4752C4;
+    transform: translateY(-2px);
+}
+.btn-discord i { color: #fff; }
+
 .btn-full {
     width: 100%;
     justify-content: center;
