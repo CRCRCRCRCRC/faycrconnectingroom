@@ -22,6 +22,8 @@ try {
 }
 
 const app = express();
+// 在 Vercel/Proxy 環境下，必須信任代理，否則 rate-limit 會報 X-Forwarded-For 錯誤
+app.set('trust proxy', 1);
 
 // 初始化數據庫和郵件服務
 const database = new Database(config.database.filename);
